@@ -6,5 +6,8 @@
   "types": "./src/index.ts",
   "scripts": {
     "lint": "echo 'No linting configured yet'"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.73.0"
   }
 }

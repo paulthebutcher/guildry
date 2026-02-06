@@ -16,7 +16,7 @@ export async function GET() {
       .from("conversations")
       .select("*")
       .eq("org_id", orgId)
-      .order("started_at", { ascending: false });
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Failed to fetch conversations:", error);

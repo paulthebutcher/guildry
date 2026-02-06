@@ -64,16 +64,12 @@ export interface Client {
 
 export interface Conversation {
   id: string;
-  org_id: string;
-  user_id: string;
-  product: string;
-  target_schema: string | null;
-  intent: string | null;
+  organization_id: string;
+  client_id: string | null;
+  title: string | null;
   status: ConversationStatus;
-  extracted_data: Record<string, unknown>;
-  created_entities: Record<string, string>;
-  started_at: string;
-  completed_at: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
   updated_at: string;
 }
 

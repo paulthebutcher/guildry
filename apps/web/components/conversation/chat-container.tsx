@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { MessageList } from "./message-list";
 import { ChatInput } from "./chat-input";
 import { TypingIndicator } from "./typing-indicator";
+import { ErrorMessage, Skeleton } from "@/components/ui";
+import { captureError, getErrorMessage } from "@/lib/errors";
 
 interface Message {
   id: string;
@@ -27,6 +29,7 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
     async function fetchMessages() {
       try {
         setIsLoading(true);
+        setError(null);
         const response = await fetch(
           `/api/conversations/${conversationId}/messages`
         );
@@ -38,8 +41,8 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
         const { data } = await response.json();
         setMessages(data);
       } catch (err) {
-        console.error("Error fetching messages:", err);
-        setError("Failed to load conversation");
+        captureError(err, { context: "fetch_messages", conversationId });
+        setError(getErrorMessage(err));
       } finally {
         setIsLoading(false);
       }
@@ -82,19 +85,42 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
         console.log("Created entities:", data.createdEntities);
       }
     } catch (err) {
-      console.error("Error sending message:", err);
-      setError("Failed to send message. Please try again.");
+      captureError(err, { context: "send_message", conversationId });
+      setError(getErrorMessage(err));
     } finally {
       setIsSending(false);
     }
   };
 
+  const handleRetry = () => {
+    setError(null);
+    // Trigger re-fetch
+    setIsLoading(true);
+    const fetchMessages = async () => {
+      try {
+        const response = await fetch(
+          `/api/conversations/${conversationId}/messages`
+        );
+        if (!response.ok) throw new Error("Failed to load messages");
+        const { data } = await response.json();
+        setMessages(data);
+      } catch (err) {
+        captureError(err, { context: "retry_fetch", conversationId });
+        setError(getErrorMessage(err));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchMessages();
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-pulse space-y-4 w-full max-w-2xl">
-          <div className="h-4 bg-slate-200 rounded w-3/4" />
-          <div className="h-4 bg-slate-200 rounded w-1/2" />
+        <div className="space-y-4 w-full max-w-2xl px-4">
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-4 w-2/3" />
         </div>
       </div>
     );
@@ -103,8 +129,11 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
   return (
     <div className="flex flex-col h-full">
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-          <p className="text-red-800">{error}</p>
+        <div className="px-4 pt-4">
+          <ErrorMessage
+            message={error}
+            retry={handleRetry}
+          />
         </div>
       )}
 

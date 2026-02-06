@@ -6,12 +6,14 @@ interface ChatInputProps {
   onSend: (message: string) => void;
   disabled?: boolean;
   placeholder?: string;
+  error?: boolean;
 }
 
 export function ChatInput({
   onSend,
   disabled = false,
   placeholder = "Type your message...",
+  error = false,
 }: ChatInputProps) {
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -54,7 +56,11 @@ export function ChatInput({
         placeholder={placeholder}
         disabled={disabled}
         rows={1}
-        className="flex-1 resize-none rounded-lg border border-slate-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent-blueprint disabled:bg-slate-100 disabled:cursor-not-allowed"
+        className={`flex-1 resize-none rounded-lg border px-4 py-2 focus:outline-none focus:ring-2 disabled:bg-slate-100 disabled:cursor-not-allowed ${
+          error
+            ? "border-red-300 focus:ring-red-500"
+            : "border-slate-300 focus:ring-accent-blueprint"
+        }`}
         style={{ minHeight: "40px", maxHeight: "96px" }}
       />
       <button

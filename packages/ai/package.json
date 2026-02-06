@@ -8,6 +8,8 @@
     "lint": "echo 'No linting configured yet'"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.73.0"
+    "@anthropic-ai/sdk": "^0.73.0",
+    "@guildry/database": "workspace:*",
+    "zod": "^4.3.6"
   }
 }

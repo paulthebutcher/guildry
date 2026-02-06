@@ -9,8 +9,6 @@ const updateClientSchema = z.object({
   industry: z.string().optional(),
   size_tier: z.nativeEnum(ClientSizeTier).optional(),
   website_url: z.string().url("Invalid URL").optional().or(z.literal("")),
-  email: z.string().email("Invalid email").optional().or(z.literal("")),
-  phone: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -31,7 +29,7 @@ export async function GET(
       .from("clients")
       .select("*")
       .eq("id", id)
-      .eq("organization_id", orgId)
+      .eq("org_id", orgId)
       .single<Client>();
 
     if (error || !client) {
@@ -87,7 +85,7 @@ export async function PATCH(
       .from("clients")
       .select("id")
       .eq("id", id)
-      .eq("organization_id", orgId)
+      .eq("org_id", orgId)
       .single();
 
     if (fetchError || !existingClient) {
@@ -101,8 +99,6 @@ export async function PATCH(
     if (data.industry !== undefined) updateData.industry = data.industry || null;
     if (data.size_tier !== undefined) updateData.size_tier = data.size_tier || null;
     if (data.website_url !== undefined) updateData.website_url = data.website_url || null;
-    if (data.email !== undefined) updateData.email = data.email || null;
-    if (data.phone !== undefined) updateData.phone = data.phone || null;
     if (data.notes !== undefined) updateData.notes = data.notes || null;
 
     // Update the client
@@ -110,7 +106,7 @@ export async function PATCH(
       .from("clients")
       .update(updateData)
       .eq("id", id)
-      .eq("organization_id", orgId)
+      .eq("org_id", orgId)
       .select()
       .single<Client>();
 
@@ -158,7 +154,7 @@ export async function DELETE(
       .from("clients")
       .delete()
       .eq("id", id)
-      .eq("organization_id", orgId);
+      .eq("org_id", orgId);
 
     if (error) {
       console.error("Failed to delete client:", error);

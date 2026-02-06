@@ -21,7 +21,7 @@ async function deleteClient(formData: FormData) {
     .from("clients")
     .delete()
     .eq("id", clientId)
-    .eq("organization_id", orgId);
+    .eq("org_id", orgId);
 
   if (error) {
     console.error("Failed to delete client:", error);
@@ -44,7 +44,7 @@ export default async function ClientDetailPage({
     .from("clients")
     .select("*")
     .eq("id", id)
-    .eq("organization_id", orgId)
+    .eq("org_id", orgId)
     .single<Client>();
 
   if (error || !client) {
@@ -111,34 +111,6 @@ export default async function ClientDetailPage({
                 className="text-accent-blueprint hover:underline"
               >
                 {client.website_url}
-              </a>
-            </div>
-          )}
-
-          {client.email && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Email
-              </label>
-              <a
-                href={`mailto:${client.email}`}
-                className="text-accent-blueprint hover:underline"
-              >
-                {client.email}
-              </a>
-            </div>
-          )}
-
-          {client.phone && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Phone
-              </label>
-              <a
-                href={`tel:${client.phone}`}
-                className="text-accent-blueprint hover:underline"
-              >
-                {client.phone}
               </a>
             </div>
           )}

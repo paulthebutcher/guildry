@@ -7,12 +7,13 @@ import { createServiceClient } from "@guildry/database";
 
 export interface Conversation {
   id: string;
-  organization_id: string;
-  client_id: string | null;
-  metadata: {
-    schema?: string;
-    [key: string]: unknown;
-  } | null;
+  org_id: string;
+  user_id: string;
+  target_schema: string | null;
+  intent: string | null;
+  status: string;
+  extracted_data: Record<string, unknown>;
+  created_entities: Record<string, string>;
 }
 
 export interface Message {
@@ -52,8 +53,8 @@ export async function processConversation(
 ): Promise<ProcessConversationResult> {
   const db = createServiceClient();
 
-  // Get conversation schema from metadata (default to 'client')
-  const schema = conversation.metadata?.schema || "client";
+  // Get conversation schema from target_schema (default to 'client')
+  const schema = conversation.target_schema || "client";
 
   // Fetch existing messages from the database
   const { data: existingMessages, error: messagesError } = await db
@@ -119,15 +120,12 @@ export async function processConversation(
           const { data: client, error: clientError } = await db
             .from("clients")
             .insert({
-              organization_id: conversation.organization_id,
+              org_id: conversation.org_id,
               name: validatedInput.name,
               industry: validatedInput.industry || null,
               size_tier: validatedInput.size_tier || null,
               website_url: validatedInput.website_url || null,
-              email: null,
-              phone: null,
               notes: validatedInput.notes || null,
-              metadata: null,
             })
             .select()
             .single();

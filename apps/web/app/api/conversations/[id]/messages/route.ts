@@ -1,5 +1,5 @@
 import { getAuthContext } from "@/lib/auth";
-import { getDb, Message, MessageRole, ConversationStatus } from "@/lib/db";
+import { getDb, Message } from "@/lib/db";
 import { apiError, apiSuccess, ApiErrorCode } from "@/lib/api";
 import { processConversation } from "@guildry/ai";
 
@@ -22,7 +22,7 @@ export async function GET(
       .from("conversations")
       .select("id")
       .eq("id", id)
-      .eq("organization_id", orgId)
+      .eq("org_id", orgId)
       .single();
 
     if (convError || !conversation) {
@@ -105,7 +105,7 @@ export async function POST(
       .from("conversations")
       .select("*")
       .eq("id", conversationId)
-      .eq("organization_id", orgId)
+      .eq("org_id", orgId)
       .single();
 
     if (convError || !conversation) {
@@ -122,9 +122,8 @@ export async function POST(
       .from("messages")
       .insert({
         conversation_id: conversationId,
-        role: MessageRole.USER,
+        role: "user",
         content,
-        metadata: null,
       })
       .select()
       .single<Message>();
@@ -156,12 +155,9 @@ export async function POST(
       .from("messages")
       .insert({
         conversation_id: conversationId,
-        role: MessageRole.ASSISTANT,
+        role: "assistant",
         content: aiResult.content,
-        metadata: {
-          toolCalls: aiResult.toolCalls,
-          createdEntities: aiResult.createdEntities,
-        },
+        tool_calls: aiResult.toolCalls || null,
       })
       .select()
       .single<Message>();
@@ -179,7 +175,7 @@ export async function POST(
     if (aiResult.completed) {
       const { error: updateError } = await db
         .from("conversations")
-        .update({ status: ConversationStatus.CLOSED })
+        .update({ status: "complete", completed_at: new Date().toISOString() })
         .eq("id", conversationId);
 
       if (updateError) {

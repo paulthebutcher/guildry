@@ -22,7 +22,7 @@ export async function GET(
       .from("conversations")
       .select("*")
       .eq("id", id)
-      .eq("organization_id", orgId)
+      .eq("org_id", orgId)
       .single<Conversation>();
 
     if (convError || !conversation) {

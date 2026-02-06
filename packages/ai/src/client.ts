@@ -43,7 +43,7 @@ export async function complete(
     messages,
     tools,
     system,
-    model = "claude-3-5-sonnet-20241022",
+    model = "claude-sonnet-4-5-20250929",
     maxTokens = 4096,
     temperature = 1.0,
   } = options;

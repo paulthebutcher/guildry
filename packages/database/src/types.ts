@@ -1,11 +1,5 @@
 // Database types for Guildry
 
-export enum OrganizationStatus {
-  ACTIVE = "active",
-  INACTIVE = "inactive",
-  SUSPENDED = "suspended",
-}
-
 export enum UserRole {
   OWNER = "owner",
   ADMIN = "admin",
@@ -33,9 +27,11 @@ export enum ClientSizeTier {
 
 export interface Organization {
   id: string;
+  clerk_org_id: string | null;
   name: string;
   slug: string;
-  status: OrganizationStatus;
+  type: string;
+  industry_tags: string[];
   created_at: string;
   updated_at: string;
 }
@@ -43,39 +39,41 @@ export interface Organization {
 export interface User {
   id: string;
   clerk_user_id: string;
+  org_id: string;
   email: string;
-  first_name: string | null;
-  last_name: string | null;
-  avatar_url: string | null;
-  organization_id: string;
-  role: UserRole;
+  name: string | null;
+  role: string;
+  preferences: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
 
 export interface Client {
   id: string;
-  organization_id: string;
+  org_id: string;
   name: string;
   industry: string | null;
   size_tier: ClientSizeTier | null;
   website_url: string | null;
-  email: string | null;
-  phone: string | null;
+  communication_prefs: Record<string, unknown>;
+  lifetime_value: number;
   notes: string | null;
-  metadata: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface Conversation {
   id: string;
-  organization_id: string;
-  client_id: string;
-  title: string | null;
+  org_id: string;
+  user_id: string;
+  product: string;
+  target_schema: string | null;
+  intent: string | null;
   status: ConversationStatus;
-  metadata: Record<string, unknown> | null;
-  created_at: string;
+  extracted_data: Record<string, unknown>;
+  created_entities: Record<string, string>;
+  started_at: string;
+  completed_at: string | null;
   updated_at: string;
 }
 
@@ -84,8 +82,16 @@ export interface Message {
   conversation_id: string;
   role: MessageRole;
   content: string;
-  metadata: Record<string, unknown> | null;
+  tool_calls: ToolCall[] | null;
+  tool_call_id: string | null;
+  tokens_used: number | null;
   created_at: string;
+}
+
+export interface ToolCall {
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
 }
 
 // Helper types for creating new records (omitting auto-generated fields)
@@ -97,7 +103,7 @@ export type CreateUser = Omit<User, "id" | "created_at" | "updated_at">;
 export type CreateClient = Omit<Client, "id" | "created_at" | "updated_at">;
 export type CreateConversation = Omit<
   Conversation,
-  "id" | "created_at" | "updated_at"
+  "id" | "started_at" | "completed_at" | "updated_at"
 >;
 export type CreateMessage = Omit<Message, "id" | "created_at">;
 

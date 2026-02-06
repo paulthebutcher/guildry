@@ -1,5 +1,5 @@
 import { getAuthContext } from "@/lib/auth";
-import { getDb, ConversationStatus } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { apiError, apiSuccess, ApiErrorCode } from "@/lib/api";
 
 /**
@@ -15,8 +15,8 @@ export async function GET() {
     const { data: conversations, error } = await db
       .from("conversations")
       .select("*")
-      .eq("organization_id", orgId)
-      .order("created_at", { ascending: false });
+      .eq("org_id", orgId)
+      .order("started_at", { ascending: false });
 
     if (error) {
       console.error("Failed to fetch conversations:", error);
@@ -66,18 +66,20 @@ export async function POST(req: Request) {
       );
     }
 
+    // Get the user ID for the conversation
+    const { userId } = await getAuthContext();
+
     const db = getDb();
     const { data: conversation, error } = await db
       .from("conversations")
       .insert({
-        organization_id: orgId,
-        client_id: null,
-        title: intent || null,
-        status: ConversationStatus.ACTIVE,
-        metadata: {
-          schema: target_schema,
-          intent,
-        },
+        org_id: orgId,
+        user_id: userId,
+        target_schema,
+        intent: intent || null,
+        status: "active",
+        extracted_data: {},
+        created_entities: {},
       })
       .select()
       .single();

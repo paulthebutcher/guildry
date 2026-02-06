@@ -32,9 +32,9 @@ export async function getAuthContext(): Promise<AuthContext> {
   const db = getDb();
   const { data: user, error } = await db
     .from("users")
-    .select("id, organization_id, role")
+    .select("id, org_id, role")
     .eq("clerk_user_id", clerkUserId)
-    .single<Pick<User, "id" | "organization_id" | "role">>();
+    .single<Pick<User, "id" | "org_id" | "role">>();
 
   if (error || !user) {
     console.error("Failed to fetch user from database:", error);
@@ -43,7 +43,7 @@ export async function getAuthContext(): Promise<AuthContext> {
 
   return {
     userId: user.id,
-    orgId: user.organization_id,
+    orgId: user.org_id,
     role: user.role,
     clerkUserId,
   };

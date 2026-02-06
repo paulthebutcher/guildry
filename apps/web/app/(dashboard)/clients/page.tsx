@@ -10,7 +10,7 @@ export default async function ClientsPage() {
   const { data: clients, error } = await db
     .from("clients")
     .select("*")
-    .eq("organization_id", orgId)
+    .eq("org_id", orgId)
     .order("created_at", { ascending: false });
 
   if (error) {

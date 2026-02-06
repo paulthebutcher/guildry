@@ -9,8 +9,6 @@ const createClientSchema = z.object({
   industry: z.string().optional(),
   size_tier: z.nativeEnum(ClientSizeTier).optional(),
   website_url: z.string().url("Invalid URL").optional().or(z.literal("")),
-  email: z.string().email("Invalid email").optional().or(z.literal("")),
-  phone: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -32,7 +30,7 @@ export async function GET(req: Request) {
     let query = db
       .from("clients")
       .select("*")
-      .eq("organization_id", orgId)
+      .eq("org_id", orgId)
       .order("created_at", { ascending: false });
 
     // Apply search filter if provided
@@ -94,15 +92,12 @@ export async function POST(req: Request) {
     const { data: client, error } = await db
       .from("clients")
       .insert({
-        organization_id: orgId,
+        org_id: orgId,
         name: data.name,
         industry: data.industry || null,
         size_tier: data.size_tier || null,
         website_url: data.website_url || null,
-        email: data.email || null,
-        phone: data.phone || null,
         notes: data.notes || null,
-        metadata: null,
       })
       .select()
       .single<Client>();

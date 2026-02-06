@@ -24,6 +24,13 @@ export enum MessageRole {
   SYSTEM = "system",
 }
 
+export enum ClientSizeTier {
+  STARTUP = "startup",
+  SMB = "smb",
+  MID = "mid",
+  ENTERPRISE = "enterprise",
+}
+
 export interface Organization {
   id: string;
   name: string;
@@ -50,6 +57,9 @@ export interface Client {
   id: string;
   organization_id: string;
   name: string;
+  industry: string | null;
+  size_tier: ClientSizeTier | null;
+  website_url: string | null;
   email: string | null;
   phone: string | null;
   notes: string | null;

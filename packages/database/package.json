@@ -6,5 +6,8 @@
   "types": "./src/index.ts",
   "scripts": {
     "lint": "echo 'No linting configured yet'"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.95.2"
   }
 }

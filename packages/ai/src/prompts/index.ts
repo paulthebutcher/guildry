@@ -1,11 +1,12 @@
 import { getBaseSystemPrompt } from "./system";
 import { getClientPrompt } from "./client";
 import { getProjectPrompt } from "./project";
+import { getPersonPrompt } from "./person";
 
 /**
  * Get the combined system prompt for a given schema type
  *
- * @param schema - The schema type (e.g., 'client', 'project')
+ * @param schema - The schema type (e.g., 'client', 'project', 'person')
  * @returns Combined system prompt
  */
 export function getPromptForSchema(schema: string): string {
@@ -16,6 +17,8 @@ export function getPromptForSchema(schema: string): string {
       return `${basePrompt}\n\n${getClientPrompt()}`;
     case "project":
       return `${basePrompt}\n\n${getProjectPrompt()}`;
+    case "person":
+      return `${basePrompt}\n\n${getPersonPrompt()}`;
     default:
       return basePrompt;
   }
@@ -25,3 +28,4 @@ export function getPromptForSchema(schema: string): string {
 export { getBaseSystemPrompt } from "./system";
 export { getClientPrompt } from "./client";
 export { getProjectPrompt } from "./project";
+export { getPersonPrompt } from "./person";

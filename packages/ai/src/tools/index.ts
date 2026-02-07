@@ -1,12 +1,18 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClientTool } from "./client";
 import { createProjectTool, suggestPhasesTool, updateProjectTool } from "./project";
+import {
+  createPersonTool,
+  updatePersonTool,
+  suggestSkillsTool,
+  findPeopleBySkillsTool,
+} from "./person";
 import { askClarifyingQuestionTool, markCompleteTool } from "./common";
 
 /**
  * Get the appropriate tools for a given schema type
  *
- * @param schema - The schema type (e.g., 'client', 'project')
+ * @param schema - The schema type (e.g., 'client', 'project', 'person')
  * @returns Array of Anthropic tools
  */
 export function getToolsForSchema(schema: string): Anthropic.Tool[] {
@@ -17,6 +23,8 @@ export function getToolsForSchema(schema: string): Anthropic.Tool[] {
       return [createClientTool, ...commonTools];
     case "project":
       return [createProjectTool, suggestPhasesTool, updateProjectTool, ...commonTools];
+    case "person":
+      return [createPersonTool, updatePersonTool, suggestSkillsTool, findPeopleBySkillsTool, ...commonTools];
     default:
       return commonTools;
   }
@@ -25,4 +33,10 @@ export function getToolsForSchema(schema: string): Anthropic.Tool[] {
 // Re-export tools for direct access
 export { createClientTool } from "./client";
 export { createProjectTool, suggestPhasesTool, updateProjectTool } from "./project";
+export {
+  createPersonTool,
+  updatePersonTool,
+  suggestSkillsTool,
+  findPeopleBySkillsTool,
+} from "./person";
 export { askClarifyingQuestionTool, markCompleteTool } from "./common";

@@ -4,6 +4,7 @@ import { getToolsForSchema } from "./tools";
 import { getPromptForSchema } from "./prompts";
 import { ClientInputSchema } from "./tools/client";
 import { ProjectInputSchema } from "./tools/project";
+import { PersonInputSchema } from "./tools/person";
 import { createServiceClient } from "@guildry/database";
 
 export interface Conversation {
@@ -379,6 +380,232 @@ export async function processConversation(
         } catch (error) {
           console.error("Error executing update_project tool:", error);
           throw error;
+        }
+      }
+
+      // Handle create_person tool
+      if (toolCall.name === "create_person") {
+        try {
+          // Validate input
+          const validatedInput = PersonInputSchema.parse(toolCall.input);
+          const skills = (toolCall.input as { skills?: Array<{ skill_name: string; proficiency_level: number; years_experience?: number }> }).skills;
+
+          // Insert person into database
+          const { data: person, error: personError } = await db
+            .from("people")
+            .insert({
+              org_id: conversation.org_id,
+              name: validatedInput.name,
+              type: validatedInput.type,
+              email: validatedInput.email || null,
+              location: validatedInput.location || null,
+              hourly_rate: validatedInput.hourly_rate || null,
+              currency: validatedInput.currency || "USD",
+              availability_status: validatedInput.availability_status || "available",
+              notes: validatedInput.notes || null,
+            })
+            .select()
+            .single();
+
+          if (personError) {
+            console.error("Failed to create person:", personError);
+            throw new Error("Failed to create person in database");
+          }
+
+          console.log("Person created successfully:", person.id);
+
+          // Link skills if provided
+          if (skills && skills.length > 0) {
+            for (const skillData of skills) {
+              // Try to find existing skill by name
+              const { data: existingSkill } = await db
+                .from("skills")
+                .select("id")
+                .ilike("name", skillData.skill_name)
+                .single();
+
+              if (existingSkill?.id) {
+                await db.from("person_skills").insert({
+                  person_id: person.id,
+                  skill_id: existingSkill.id,
+                  proficiency_level: skillData.proficiency_level,
+                  years_experience: skillData.years_experience || null,
+                });
+              }
+            }
+          }
+
+          // Track created entity
+          createdEntities.push({
+            type: "person",
+            id: person.id,
+            name: person.name,
+          });
+
+          // Get Claude's follow-up response after tool execution
+          const followUpResult = await complete({
+            messages: [
+              ...messages,
+              {
+                role: "assistant",
+                content: [
+                  {
+                    type: "tool_use",
+                    id: toolCall.id,
+                    name: toolCall.name,
+                    input: toolCall.input,
+                  },
+                ],
+              },
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "tool_result",
+                    tool_use_id: toolCall.id,
+                    content: JSON.stringify({
+                      success: true,
+                      person_id: person.id,
+                      message: `${person.name} added to your talent network`,
+                    }),
+                  },
+                ],
+              },
+            ],
+            tools,
+            system: systemPrompt,
+            maxTokens: 1024,
+          });
+
+          finalContent = followUpResult.content;
+        } catch (error) {
+          console.error("Error executing create_person tool:", error);
+          throw error;
+        }
+      }
+
+      // Handle update_person tool
+      if (toolCall.name === "update_person") {
+        try {
+          const input = toolCall.input as { person_id: string; [key: string]: unknown };
+          const { person_id, ...updates } = input;
+
+          const { data: person, error: updateError } = await db
+            .from("people")
+            .update(updates)
+            .eq("id", person_id)
+            .eq("org_id", conversation.org_id)
+            .select()
+            .single();
+
+          if (updateError) {
+            console.error("Failed to update person:", updateError);
+            throw new Error("Failed to update person in database");
+          }
+
+          console.log("Person updated successfully:", person.id);
+
+          // Get Claude's follow-up response
+          const followUpResult = await complete({
+            messages: [
+              ...messages,
+              {
+                role: "assistant",
+                content: [
+                  {
+                    type: "tool_use",
+                    id: toolCall.id,
+                    name: toolCall.name,
+                    input: toolCall.input,
+                  },
+                ],
+              },
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "tool_result",
+                    tool_use_id: toolCall.id,
+                    content: JSON.stringify({
+                      success: true,
+                      person_id: person.id,
+                      message: `${person.name}'s profile updated successfully`,
+                    }),
+                  },
+                ],
+              },
+            ],
+            tools,
+            system: systemPrompt,
+            maxTokens: 1024,
+          });
+
+          finalContent = followUpResult.content;
+        } catch (error) {
+          console.error("Error executing update_person tool:", error);
+          throw error;
+        }
+      }
+
+      // Handle suggest_skills tool (informational only, no DB action)
+      if (toolCall.name === "suggest_skills") {
+        const input = toolCall.input as {
+          role_description: string;
+          suggested_skills: Array<{ name: string; category: string; typical_for_role: boolean }>;
+        };
+        console.log("Skills suggested:", input);
+
+        // Format skills as readable content
+        const typicalSkills = input.suggested_skills.filter((s) => s.typical_for_role);
+        const bonusSkills = input.suggested_skills.filter((s) => !s.typical_for_role);
+
+        let skillsContent = `**Suggested skills for "${input.role_description}":**\n\n`;
+
+        if (typicalSkills.length > 0) {
+          skillsContent += `**Core skills:**\n${typicalSkills.map((s) => `• ${s.name} (${s.category})`).join("\n")}\n\n`;
+        }
+        if (bonusSkills.length > 0) {
+          skillsContent += `**Also common:**\n${bonusSkills.map((s) => `• ${s.name} (${s.category})`).join("\n")}\n\n`;
+        }
+
+        skillsContent += "Which of these apply? Or tell me about their specific expertise.";
+
+        // Append to existing content or use as content
+        if (finalContent && finalContent.trim() !== "") {
+          finalContent = `${finalContent}\n\n${skillsContent}`;
+        } else {
+          finalContent = skillsContent;
+        }
+      }
+
+      // Handle find_people_by_skills tool (query, no DB mutation)
+      if (toolCall.name === "find_people_by_skills") {
+        const input = toolCall.input as {
+          required_skills: string[];
+          preferred_skills?: string[];
+          availability_filter?: string;
+          max_hourly_rate?: number;
+        };
+        console.log("Finding people by skills:", input);
+
+        // This is an informational tool - format the search criteria
+        let searchContent = `**Searching for talent with:**\n`;
+        searchContent += `• Required: ${input.required_skills.join(", ")}\n`;
+        if (input.preferred_skills?.length) {
+          searchContent += `• Nice to have: ${input.preferred_skills.join(", ")}\n`;
+        }
+        if (input.availability_filter) {
+          searchContent += `• Availability: ${input.availability_filter}\n`;
+        }
+        if (input.max_hourly_rate) {
+          searchContent += `• Max rate: $${input.max_hourly_rate}/hr\n`;
+        }
+
+        // Append to existing content or use as content
+        if (finalContent && finalContent.trim() !== "") {
+          finalContent = `${finalContent}\n\n${searchContent}`;
+        } else {
+          finalContent = searchContent;
         }
       }
 

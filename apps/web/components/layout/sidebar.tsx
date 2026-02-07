@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, MessageSquare } from "lucide-react";
+import { Home, Users, FolderKanban, MessageSquare } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
+  { name: "Projects", href: "/projects", icon: FolderKanban },
   { name: "Clients", href: "/clients", icon: Users },
   { name: "Conversations", href: "/conversations", icon: MessageSquare },
 ];

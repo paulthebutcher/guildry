@@ -112,3 +112,150 @@ export type UpdateClient = Partial<Omit<Client, "id">> & { id: string };
 export type UpdateConversation = Partial<Omit<Conversation, "id">> & {
   id: string;
 };
+
+// ============================================
+// Phase 1: Projects, People & Retrospectives
+// ============================================
+
+// Project status lifecycle
+export enum ProjectStatus {
+  DRAFT = "draft",
+  SCOPING = "scoping",
+  PROPOSED = "proposed",
+  ACTIVE = "active",
+  PAUSED = "paused",
+  COMPLETE = "complete",
+  CANCELLED = "cancelled",
+}
+
+// Project types
+export enum ProjectType {
+  NEW_BUILD = "new_build",
+  REDESIGN = "redesign",
+  FIX = "fix",
+  AUDIT = "audit",
+  RETAINER = "retainer",
+  STRATEGY = "strategy",
+}
+
+export interface Project {
+  id: string;
+  org_id: string;
+  client_id: string | null;
+  name: string;
+  description: string | null;
+  status: ProjectStatus;
+  type: ProjectType | null;
+  estimated_hours: number | null;
+  actual_hours: number | null;
+  estimated_cost: number | null;
+  actual_cost: number | null;
+  start_date: string | null;
+  end_date: string | null;
+  tags: string[] | null;
+  metadata: Record<string, unknown> | null; // Flexible field for discovery
+  created_at: string;
+  updated_at: string;
+}
+
+export type CreateProject = Omit<Project, "id" | "created_at" | "updated_at">;
+export type UpdateProject = Partial<Omit<Project, "id">> & { id: string };
+
+// Phase within a project
+export enum PhaseStatus {
+  PLANNED = "planned",
+  ACTIVE = "active",
+  COMPLETE = "complete",
+}
+
+export interface Phase {
+  id: string;
+  project_id: string;
+  name: string;
+  sort_order: number;
+  estimated_hours: number | null;
+  actual_hours: number | null;
+  start_date: string | null;
+  end_date: string | null;
+  status: PhaseStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CreatePhase = Omit<Phase, "id" | "created_at" | "updated_at">;
+export type UpdatePhase = Partial<Omit<Phase, "id">> & { id: string };
+
+// People (talent network)
+export enum PersonType {
+  EMPLOYEE = "employee",
+  CONTRACTOR = "contractor",
+  REFERRAL = "referral",
+}
+
+export enum AvailabilityStatus {
+  AVAILABLE = "available",
+  PARTIAL = "partial",
+  BOOKED = "booked",
+  UNAVAILABLE = "unavailable",
+}
+
+export interface Person {
+  id: string;
+  org_id: string;
+  name: string;
+  type: PersonType;
+  email: string | null;
+  location: string | null;
+  hourly_rate: number | null;
+  currency: string;
+  availability_status: AvailabilityStatus;
+  rating: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CreatePerson = Omit<Person, "id" | "created_at" | "updated_at">;
+export type UpdatePerson = Partial<Omit<Person, "id">> & { id: string };
+
+// Skills
+export enum SkillCategory {
+  DESIGN = "design",
+  ENGINEERING = "engineering",
+  STRATEGY = "strategy",
+  OPS = "ops",
+  MARKETING = "marketing",
+  DATA = "data",
+}
+
+export interface Skill {
+  id: string;
+  name: string;
+  category: SkillCategory;
+  market_rate_p25: number | null;
+  market_rate_p50: number | null;
+  market_rate_p75: number | null;
+  rate_geography: string;
+  created_at: string;
+}
+
+// Retrospective
+export interface Retrospective {
+  id: string;
+  project_id: string;
+  completed_at: string | null;
+  hours_variance_pct: number | null;
+  cost_variance_pct: number | null;
+  scope_changes_count: number;
+  client_satisfaction: number | null;
+  what_worked: string | null;
+  what_didnt: string | null;
+  lessons: string[] | null;
+  would_repeat: boolean | null;
+  tags: string[] | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CreateRetrospective = Omit<Retrospective, "id" | "created_at" | "updated_at">;
+export type UpdateRetrospective = Partial<Omit<Retrospective, "id">> & { id: string };

@@ -10,7 +10,7 @@ interface CreatedEntity {
   name: string;
 }
 
-export default function NewClientPage() {
+export default function NewProjectPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -24,8 +24,8 @@ export default function NewClientPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            target_schema: "client",
-            intent: "Create a new client",
+            target_schema: "project",
+            intent: "Create a new project",
           }),
         });
 
@@ -44,12 +44,12 @@ export default function NewClientPage() {
     createConversation();
   }, []);
 
-  // Handle entity creation - redirect to client detail page
+  // Handle entity creation - redirect to project detail page
   const handleEntityCreated = useCallback((entity: CreatedEntity) => {
-    if (entity.type === "client") {
+    if (entity.type === "project") {
       // Small delay to let the user see the success message
       setTimeout(() => {
-        router.push(`/clients/${entity.id}`);
+        router.push(`/projects/${entity.id}`);
       }, 1500);
     }
   }, [router]);
@@ -78,16 +78,16 @@ export default function NewClientPage() {
   return (
     <div className="max-w-4xl mx-auto h-[calc(100vh-200px)]">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-slate-900">Add New Client</h1>
+        <h1 className="text-2xl font-bold text-slate-900">New Project</h1>
         <p className="text-slate-600 mt-1">
-          Chat with the assistant to create a new client record
+          Describe your project and I&apos;ll help you scope it out with phases and estimates
         </p>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-lg h-[calc(100%-80px)]">
         <ChatContainer
           conversationId={conversationId}
-          initialMessage="I want to add a new client"
+          initialMessage="I want to create a new project"
           onEntityCreated={handleEntityCreated}
         />
       </div>

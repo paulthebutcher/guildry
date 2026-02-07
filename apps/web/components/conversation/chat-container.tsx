@@ -14,15 +14,24 @@ interface Message {
   created_at: string;
 }
 
-interface ChatContainerProps {
-  conversationId: string;
+interface CreatedEntity {
+  type: string;
+  id: string;
+  name: string;
 }
 
-export function ChatContainer({ conversationId }: ChatContainerProps) {
+interface ChatContainerProps {
+  conversationId: string;
+  initialMessage?: string; // Optional auto-send message to kick off conversation
+  onEntityCreated?: (entity: CreatedEntity) => void; // Callback when an entity is created
+}
+
+export function ChatContainer({ conversationId, initialMessage, onEntityCreated }: ChatContainerProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [initialSent, setInitialSent] = useState(false);
 
   // Fetch messages on mount
   useEffect(() => {
@@ -51,7 +60,24 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
     fetchMessages();
   }, [conversationId]);
 
+  // Auto-send initial message if provided and conversation is empty
+  useEffect(() => {
+    if (!isLoading && !initialSent && initialMessage && messages.length === 0) {
+      setInitialSent(true);
+      handleSendMessage(initialMessage);
+    }
+  }, [isLoading, initialSent, initialMessage, messages.length]);
+
   const handleSendMessage = async (content: string) => {
+    // Optimistic UI: show user message immediately
+    const optimisticUserMessage: Message = {
+      id: `temp-${Date.now()}`,
+      role: "user",
+      content,
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimisticUserMessage]);
+
     try {
       setIsSending(true);
       setError(null);
@@ -73,18 +99,23 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
 
       const { data } = await response.json();
 
-      // Add both user and assistant messages to the list
+      // Replace optimistic message with real one and add assistant response
       setMessages((prev) => [
-        ...prev,
+        ...prev.filter((m) => m.id !== optimisticUserMessage.id),
         data.userMessage,
         data.assistantMessage,
       ]);
 
-      // If conversation is completed, you might want to show a notification
-      if (data.completed && data.createdEntities) {
+      // If an entity was created, notify the parent
+      if (data.createdEntities && data.createdEntities.length > 0) {
         console.log("Created entities:", data.createdEntities);
+        if (onEntityCreated) {
+          onEntityCreated(data.createdEntities[0]);
+        }
       }
     } catch (err) {
+      // Remove optimistic message on error
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticUserMessage.id));
       captureError(err, { context: "send_message", conversationId });
       setError(getErrorMessage(err));
     } finally {

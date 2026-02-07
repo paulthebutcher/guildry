@@ -3,6 +3,7 @@ import { complete } from "./client";
 import { getToolsForSchema } from "./tools";
 import { getPromptForSchema } from "./prompts";
 import { ClientInputSchema } from "./tools/client";
+import { ProjectInputSchema } from "./tools/project";
 import { createServiceClient } from "@guildry/database";
 
 export interface Conversation {
@@ -186,16 +187,220 @@ export async function processConversation(
         }
       }
 
+      // Handle create_project tool
+      if (toolCall.name === "create_project") {
+        try {
+          // Validate input
+          const validatedInput = ProjectInputSchema.parse(toolCall.input);
+          const phases = (toolCall.input as { phases?: Array<{ name: string; estimated_hours: number }> }).phases;
+
+          // Insert project into database
+          const { data: project, error: projectError } = await db
+            .from("projects")
+            .insert({
+              org_id: conversation.org_id,
+              name: validatedInput.name,
+              client_id: validatedInput.client_id || null,
+              description: validatedInput.description || null,
+              type: validatedInput.type || null,
+              status: "draft",
+              estimated_hours: validatedInput.estimated_hours || null,
+              start_date: validatedInput.start_date || null,
+              end_date: validatedInput.end_date || null,
+              tags: validatedInput.tags || null,
+            })
+            .select()
+            .single();
+
+          if (projectError) {
+            console.error("Failed to create project:", projectError);
+            throw new Error("Failed to create project in database");
+          }
+
+          console.log("Project created successfully:", project.id);
+
+          // Create phases if provided
+          if (phases && phases.length > 0) {
+            const phasesWithOrder = phases.map((phase, index) => ({
+              project_id: project.id,
+              name: phase.name,
+              estimated_hours: phase.estimated_hours,
+              sort_order: index,
+              status: "planned",
+            }));
+
+            const { error: phasesError } = await db.from("phases").insert(phasesWithOrder);
+            if (phasesError) {
+              console.error("Failed to create phases:", phasesError);
+              // Don't throw - project was created successfully
+            }
+          }
+
+          // Track created entity
+          createdEntities.push({
+            type: "project",
+            id: project.id,
+            name: project.name,
+          });
+
+          // Get Claude's follow-up response after tool execution
+          const followUpResult = await complete({
+            messages: [
+              ...messages,
+              {
+                role: "assistant",
+                content: [
+                  {
+                    type: "tool_use",
+                    id: toolCall.id,
+                    name: toolCall.name,
+                    input: toolCall.input,
+                  },
+                ],
+              },
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "tool_result",
+                    tool_use_id: toolCall.id,
+                    content: JSON.stringify({
+                      success: true,
+                      project_id: project.id,
+                      message: `Project "${project.name}" created successfully with ${phases?.length || 0} phases`,
+                    }),
+                  },
+                ],
+              },
+            ],
+            tools,
+            system: systemPrompt,
+            maxTokens: 1024,
+          });
+
+          finalContent = followUpResult.content;
+        } catch (error) {
+          console.error("Error executing create_project tool:", error);
+          throw error;
+        }
+      }
+
+      // Handle suggest_phases tool (informational only, no DB action)
+      if (toolCall.name === "suggest_phases") {
+        const input = toolCall.input as {
+          project_type: string;
+          complexity: string;
+          phases: Array<{ name: string; description: string; typical_hours_range: string }>;
+        };
+        console.log("Phases suggested:", input);
+
+        // Always format and include the phases - this is the key information
+        const phasesList = input.phases
+          .map((p, i) => `${i + 1}. **${p.name}** (${p.typical_hours_range})\n   ${p.description}`)
+          .join("\n\n");
+
+        // Calculate total hours range
+        const totalMin = input.phases.reduce((sum, p) => {
+          const match = p.typical_hours_range.match(/(\d+)/);
+          return sum + (match ? parseInt(match[1]) : 0);
+        }, 0);
+        const totalMax = input.phases.reduce((sum, p) => {
+          const match = p.typical_hours_range.match(/(\d+)[^\d]*(\d+)/);
+          return sum + (match ? parseInt(match[2]) : 0);
+        }, 0);
+
+        const phasesContent = `**Suggested Phases for ${input.complexity} ${input.project_type}:**\n\n${phasesList}\n\n**Total Estimated: ${totalMin}-${totalMax} hours**\n\nDoes this breakdown look right? I can adjust phases, add/remove items, or modify the hour estimates.`;
+
+        // Append to existing content or use as content
+        if (finalContent && finalContent.trim() !== "") {
+          finalContent = `${finalContent}\n\n${phasesContent}`;
+        } else {
+          finalContent = phasesContent;
+        }
+      }
+
+      // Handle update_project tool
+      if (toolCall.name === "update_project") {
+        try {
+          const input = toolCall.input as { project_id: string; [key: string]: unknown };
+          const { project_id, ...updates } = input;
+
+          const { data: project, error: updateError } = await db
+            .from("projects")
+            .update(updates)
+            .eq("id", project_id)
+            .eq("org_id", conversation.org_id)
+            .select()
+            .single();
+
+          if (updateError) {
+            console.error("Failed to update project:", updateError);
+            throw new Error("Failed to update project in database");
+          }
+
+          console.log("Project updated successfully:", project.id);
+
+          // Get Claude's follow-up response
+          const followUpResult = await complete({
+            messages: [
+              ...messages,
+              {
+                role: "assistant",
+                content: [
+                  {
+                    type: "tool_use",
+                    id: toolCall.id,
+                    name: toolCall.name,
+                    input: toolCall.input,
+                  },
+                ],
+              },
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "tool_result",
+                    tool_use_id: toolCall.id,
+                    content: JSON.stringify({
+                      success: true,
+                      project_id: project.id,
+                      message: `Project "${project.name}" updated successfully`,
+                    }),
+                  },
+                ],
+              },
+            ],
+            tools,
+            system: systemPrompt,
+            maxTokens: 1024,
+          });
+
+          finalContent = followUpResult.content;
+        } catch (error) {
+          console.error("Error executing update_project tool:", error);
+          throw error;
+        }
+      }
+
       // Handle mark_complete tool
       if (toolCall.name === "mark_complete") {
         completed = true;
-        console.log("Conversation marked as complete:", toolCall.input);
+        const input = toolCall.input as { summary: string };
+        console.log("Conversation marked as complete:", input);
+        // Use the summary as the response content if no text was provided
+        if (!finalContent || finalContent.trim() === "") {
+          finalContent = input.summary;
+        }
       }
 
       // Handle ask_clarifying_question tool
       if (toolCall.name === "ask_clarifying_question") {
-        // The question is already in the content, no additional action needed
-        console.log("Clarifying question asked:", toolCall.input);
+        const input = toolCall.input as { question: string; reason?: string };
+        console.log("Clarifying question asked:", input);
+        // Use the question as the response content if no text was provided
+        if (!finalContent || finalContent.trim() === "") {
+          finalContent = input.question;
+        }
       }
     }
   }

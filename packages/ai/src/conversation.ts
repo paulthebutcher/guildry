@@ -5,6 +5,7 @@ import { getPromptForSchema } from "./prompts";
 import { ClientInputSchema } from "./tools/client";
 import { ProjectInputSchema } from "./tools/project";
 import { PersonInputSchema } from "./tools/person";
+import { RetrospectiveInputSchema } from "./tools/retrospective";
 import { createServiceClient } from "@guildry/database";
 
 export interface Conversation {
@@ -606,6 +607,223 @@ export async function processConversation(
           finalContent = `${finalContent}\n\n${searchContent}`;
         } else {
           finalContent = searchContent;
+        }
+      }
+
+      // Handle create_retrospective tool
+      if (toolCall.name === "create_retrospective") {
+        try {
+          // Validate input
+          const validatedInput = RetrospectiveInputSchema.parse(toolCall.input);
+
+          // Verify project belongs to this org
+          const { data: project, error: projectError } = await db
+            .from("projects")
+            .select("id, name, org_id")
+            .eq("id", validatedInput.project_id)
+            .eq("org_id", conversation.org_id)
+            .single();
+
+          if (projectError || !project) {
+            throw new Error("Project not found or doesn't belong to this organization");
+          }
+
+          // Insert retrospective into database
+          const { data: retrospective, error: retroError } = await db
+            .from("retrospectives")
+            .insert({
+              project_id: validatedInput.project_id,
+              completed_at: new Date().toISOString(),
+              hours_variance_pct: validatedInput.hours_variance_pct || null,
+              cost_variance_pct: validatedInput.cost_variance_pct || null,
+              scope_changes_count: validatedInput.scope_changes_count || 0,
+              client_satisfaction: validatedInput.client_satisfaction || null,
+              what_worked: validatedInput.what_worked || null,
+              what_didnt: validatedInput.what_didnt || null,
+              lessons: validatedInput.lessons || null,
+              would_repeat: validatedInput.would_repeat ?? null,
+              tags: validatedInput.tags || null,
+            })
+            .select()
+            .single();
+
+          if (retroError) {
+            console.error("Failed to create retrospective:", retroError);
+            throw new Error("Failed to create retrospective in database");
+          }
+
+          console.log("Retrospective created successfully:", retrospective.id);
+
+          // Track created entity
+          createdEntities.push({
+            type: "retrospective",
+            id: retrospective.id,
+            name: `${project.name} Retro`,
+          });
+
+          // Get Claude's follow-up response after tool execution
+          const followUpResult = await complete({
+            messages: [
+              ...messages,
+              {
+                role: "assistant",
+                content: [
+                  {
+                    type: "tool_use",
+                    id: toolCall.id,
+                    name: toolCall.name,
+                    input: toolCall.input,
+                  },
+                ],
+              },
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "tool_result",
+                    tool_use_id: toolCall.id,
+                    content: JSON.stringify({
+                      success: true,
+                      retrospective_id: retrospective.id,
+                      message: `Retrospective for "${project.name}" saved successfully`,
+                    }),
+                  },
+                ],
+              },
+            ],
+            tools,
+            system: systemPrompt,
+            maxTokens: 1024,
+          });
+
+          finalContent = followUpResult.content;
+        } catch (error) {
+          console.error("Error executing create_retrospective tool:", error);
+          throw error;
+        }
+      }
+
+      // Handle update_retrospective tool
+      if (toolCall.name === "update_retrospective") {
+        try {
+          const input = toolCall.input as { retrospective_id: string; [key: string]: unknown };
+          const { retrospective_id, ...updates } = input;
+
+          // Verify retrospective exists and belongs to org's project
+          const { data: existing } = await db
+            .from("retrospectives")
+            .select("project_id")
+            .eq("id", retrospective_id)
+            .single();
+
+          if (!existing) {
+            throw new Error("Retrospective not found");
+          }
+
+          const { data: project } = await db
+            .from("projects")
+            .select("org_id")
+            .eq("id", existing.project_id)
+            .single();
+
+          if (!project || project.org_id !== conversation.org_id) {
+            throw new Error("Retrospective not found or doesn't belong to this organization");
+          }
+
+          const { data: retrospective, error: updateError } = await db
+            .from("retrospectives")
+            .update(updates)
+            .eq("id", retrospective_id)
+            .select()
+            .single();
+
+          if (updateError) {
+            console.error("Failed to update retrospective:", updateError);
+            throw new Error("Failed to update retrospective in database");
+          }
+
+          console.log("Retrospective updated successfully:", retrospective.id);
+
+          // Get Claude's follow-up response
+          const followUpResult = await complete({
+            messages: [
+              ...messages,
+              {
+                role: "assistant",
+                content: [
+                  {
+                    type: "tool_use",
+                    id: toolCall.id,
+                    name: toolCall.name,
+                    input: toolCall.input,
+                  },
+                ],
+              },
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "tool_result",
+                    tool_use_id: toolCall.id,
+                    content: JSON.stringify({
+                      success: true,
+                      retrospective_id: retrospective.id,
+                      message: "Retrospective updated successfully",
+                    }),
+                  },
+                ],
+              },
+            ],
+            tools,
+            system: systemPrompt,
+            maxTokens: 1024,
+          });
+
+          finalContent = followUpResult.content;
+        } catch (error) {
+          console.error("Error executing update_retrospective tool:", error);
+          throw error;
+        }
+      }
+
+      // Handle summarize_learnings tool (informational, no DB mutation)
+      if (toolCall.name === "summarize_learnings") {
+        const input = toolCall.input as {
+          project_type?: string;
+          tags?: string[];
+          summary: {
+            avg_hours_variance?: number;
+            common_issues?: string[];
+            top_lessons?: string[];
+            success_patterns?: string[];
+          };
+        };
+        console.log("Learnings summarized:", input);
+
+        // Format the summary as readable content
+        let summaryContent = "**Summary of Learnings:**\n\n";
+
+        if (input.summary.avg_hours_variance !== undefined) {
+          summaryContent += `**Average Hours Variance:** ${input.summary.avg_hours_variance > 0 ? "+" : ""}${input.summary.avg_hours_variance}%\n\n`;
+        }
+
+        if (input.summary.common_issues?.length) {
+          summaryContent += `**Common Issues:**\n${input.summary.common_issues.map((i) => `• ${i}`).join("\n")}\n\n`;
+        }
+
+        if (input.summary.top_lessons?.length) {
+          summaryContent += `**Top Lessons:**\n${input.summary.top_lessons.map((l) => `💡 ${l}`).join("\n")}\n\n`;
+        }
+
+        if (input.summary.success_patterns?.length) {
+          summaryContent += `**Success Patterns:**\n${input.summary.success_patterns.map((p) => `✓ ${p}`).join("\n")}\n\n`;
+        }
+
+        // Append to existing content or use as content
+        if (finalContent && finalContent.trim() !== "") {
+          finalContent = `${finalContent}\n\n${summaryContent}`;
+        } else {
+          finalContent = summaryContent;
         }
       }
 

@@ -2,7 +2,7 @@
 
 Project intelligence for agencies, studios, and consultancies. Guildry helps teams scope, staff, deliver, learn, and improve through AI-powered conversations.
 
-**Status: Phase 0 (Foundation) Complete** | [Roadmap](https://guildry.paulb.pro/roadmap) | [Website](https://guildry.paulb.pro/)
+**Status: Phase 1 (Core Loop) Complete** | [Roadmap](https://guildry.paulb.pro/roadmap) | [Website](https://guildry.paulb.pro/)
 
 ## Overview
 
@@ -233,14 +233,27 @@ Phase 0 (Foundation) established the core infrastructure:
 - [x] Testing infrastructure (Vitest)
 - [x] CI/CD with GitHub Actions
 
+## Phase 1 Completion
+
+Phase 1 (Core Loop) implemented the project intelligence system:
+
+- [x] **Blueprint** - Conversational project scoping with phase suggestions and hour estimates
+- [x] **Bench** - Talent network management (employees, contractors, referrals) with skills tracking
+- [x] **Retro** - Project retrospectives capturing what worked, what didn't, and lessons learned
+- [x] Database schema for projects, phases, people, skills, and retrospectives
+- [x] AI tools for all three products with Claude function calling
+- [x] Optimistic UI for chat messages
+- [x] Auto-redirect to detail pages after entity creation
+
+The core loop is now complete: **Scope project → Staff it → Deliver → Learn → Improve estimates**
+
 ## Next Steps
 
-Phase 1 will implement the core project loop:
-- **Blueprint**: Project scoping with estimation models
-- **Bench**: Team skills and availability tracking
-- **Retro**: Project retrospectives and learnings
+Phase 2 will add client and sales capabilities:
+- **Relay**: Client management and communication tracking
+- **Proof**: Proposals and sales materials generation
 
-See [Phase 1 Build Guide](docs/build-guides/phase-1.md) for implementation details.
+See [Phase 2 Build Guide](docs/build-guides/phase-2.md) for implementation details (coming soon).
 
 ## License
 
